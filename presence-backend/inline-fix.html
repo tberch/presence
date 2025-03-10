@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Canvas Visualization Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        h1, h2, h3 {
+            color: #333;
+        }
+        
+        .code-block {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        
+        .section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .highlight {
+            background: #fffde7;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .test-box {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        canvas {
+            border: 1px solid #999;
+            background: #000;
+            width: 100%;
+            height: 120px;
+            display: block;
+            margin: 15px 0;
+        }
+        
+        button {
+            padding: 10px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        #debug {
+            font-family: monospace;
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow: auto;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Canvas Visualization Fix for Audio Detection App</h1>
+    
+    <div class="highlight">
+        <p>This page explains the issue with your canvas visualizers and provides an easy fix you can apply to your code.</p>
+    </div>
+    
+    <div class="section">
+        <h2>The Problem Explained</h2>
+        <p>Your canvas visualizers are appearing as black boxes because they're not being properly sized before rendering. Here are the specific issues:</p>
+        
+        <ol>
+            <li>Canvas elements have a default size of 300×150 pixels</li>
+            <li>Your CSS is setting a different size than the canvas's internal dimensions</li>
+            <li>Canvas rendering uses the internal dimensions, not the CSS dimensions</li>
+            <li>The canvas needs to be explicitly sized using JavaScript after the page loads</li>
+        </ol>
+    </div>
+    
+    <div class="section">
+        <h2>Test Your Canvas Here</h2>
+        <div id="debug"></div>
+        
+        <div class="test-box">
+            <canvas id="testCanvas"></canvas>
+            <button onclick="testCanvas()">Test Canvas</button>
+            <button onclick="clearDebug()">Clear Debug</button>
+        </div>
+        
+        <script>
+            function log(msg) {
+                console.log(msg);
+                document.getElementById('debug').innerHTML += msg + '<br>';
+                document.getElementById('debug').scrollTop = document.getElementById('debug').scrollHeight;
+            }
+            
+            function clearDebug() {
+                document.getElementById('debug').innerHTML = '';
+            }
+            
+            function testCanvas() {
+                const canvas = document.getElementById('testCanvas');
+                
+                // Log initial dimensions
+                log('Initial canvas dimensions: ' + canvas.width + '×' + canvas.height);
+                log('CSS dimensions: ' + canvas.clientWidth + '×' + canvas.clientHeight);
+                
+                // Resize canvas to match its CSS dimensions
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+                log('Resized canvas to: ' + canvas.width + '×' + canvas.height);
+                
+                // Test drawing
+                const ctx = canvas.getContext('2d');
+                
+                // Clear canvas
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw a gradient
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+                gradient.addColorStop(0, 'red');
+                gradient.addColorStop(0.5, 'green');
+                gradient.addColorStop(1, 'blue');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(20, 20, canvas.width - 40, canvas.height - 40);
+                
+                // Add text
+                ctx.fillStyle = 'white';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Canvas is working!', canvas.width/2, canvas.height/2);
+                
+                log('Canvas rendering complete');
+            }
+            
+            // Test on page load
+            window.addEventListener('load', function() {
+                log('Page loaded');
+                setTimeout(testCanvas, 100);
+            });
+        </script>
+    </div>
+    
+    <div class="section">
+        <h2>The Solution</h2>
+        <p>Add this script at the top of your index.html, before audio-event-detector.js is loaded:</p>
+        
+        <div class="code-block">&lt;script&gt;
+// Canvas initialization script
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for layout to complete
+    setTimeout(function() {
+        // Fix the debug visualizer
+        var debugCanvas = document.getElementById('debugVisualizer');
+        if (debugCanvas) {
+            debugCanvas.width = debugCanvas.clientWidth;
+            debugCanvas.height = debugCanvas.clientHeight;
+            console.log('Debug visualizer sized to: ' + debugCanvas.width + '×' + debugCanvas.height);
+        }
+        
+        // Fix the audio visualizer
+        var audioCanvas = document.getElementById('audioVisualizer');
+        if (audioCanvas) {
+            audioCanvas.width = audioCanvas.clientWidth;
+            audioCanvas.height = audioCanvas.clientHeight;
+            console.log('Audio visualizer sized to: ' + audioCanvas.width + '×' + audioCanvas.height);
+        }
+    }, 100);
+});
+&lt;/script&gt;</div>
+    </div>
+    
+    <div class="section">
+        <h2>Add a Test Button</h2>
+        <p>You can also add this button to immediately test if visualizers are working:</p>
+        
+        <div class="code-block">&lt;button id="testVisualizersBtn"&gt;Test Visualizers&lt;/button&gt;</div>
+        
+        <p>And add this JavaScript at the end of your script section:</p>
+        
+        <div class="code-block">// Test visualizers button
+document.getElementById('testVisualizersBtn').addEventListener('click', function() {
+    // Test debug visualizer
+    var debugCanvas = document.getElementById('debugVisualizer');
+    var debugCtx = debugCanvas.getContext('2d');
+    
+    // Clear canvas
+    debugCtx.fillStyle = '#222';
+    debugCtx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
+    
+    // Draw a sine wave
+    debugCtx.strokeStyle = '#4CAF50';
+    debugCtx.lineWidth = 2;
+    debugCtx.beginPath();
+    
+    for (var x = 0; x < debugCanvas.width; x++) {
+        var y = debugCanvas.height/2 + Math.sin(x/20) * 30;
+        
+        if (x === 0) {
+            debugCtx.moveTo(x, y);
+        } else {
+            debugCtx.lineTo(x, y);
+        }
+    }
+    
+    debugCtx.stroke();
+    
+    // Test audio visualizer
+    var audioCanvas = document.getElementById('audioVisualizer');
+    var audioCtx = audioCanvas.getContext('2d');
+    
+    // Clear canvas
+    audioCtx.fillStyle = '#000';
+    audioCtx.fillRect(0, 0, audioCanvas.width, audioCanvas.height);
+    
+    // Draw bars
+    var barCount = 32;
+    var barWidth = audioCanvas.width / barCount;
+    
+    for (var i = 0; i < barCount; i++) {
+        var barHeight = audioCanvas.height * (0.2 + 0.6 * Math.sin(i/barCount * Math.PI));
+        
+        // Create gradient
+        var gradient = audioCtx.createLinearGradient(0, audioCanvas.height, 0, audioCanvas.height - barHeight);
+        gradient.addColorStop(0, '#4CAF50');
+        gradient.addColorStop(0.5, '#FFEB3B');
+        gradient.addColorStop(1, '#F44336');
+        
+        audioCtx.fillStyle = gradient;
+        audioCtx.fillRect(i * barWidth, audioCanvas.height - barHeight, barWidth - 1, barHeight);
+    }
+    
+    console.log('Visualizers test complete');
+});</div>
+    </div>
+    
+    <div class="section">
+        <h2>Implementation</h2>
+        <p>Since your container filesystem is read-only, you'll need to update your application source code with these changes and rebuild your deployment:</p>
+        
+        <ol>
+            <li>Add the canvas initialization script to your HTML</li>
+            <li>Add the test button to your controls section</li>
+            <li>Add the test button event handler to your JavaScript</li>
+            <li>Rebuild and redeploy your application</li>
+        </ol>
+        
+        <div class="highlight">
+            <p><strong>Important CSS Note:</strong> Make sure your canvas elements have <code>display: block</code> in their CSS. This ensures proper sizing:</p>
+            <div class="code-block">#audioVisualizer, #debugVisualizer {
+    display: block;
+    width: 100%;
+    height: 100px;
+}</div>
+        </div>
+    </div>
+</body>
+</html>

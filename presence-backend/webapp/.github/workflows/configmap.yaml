@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: audio-app-config
+data:
+  LOG_LEVEL: "INFO"
+  CORS_ORIGINS: "https://soundspot.com,https://www.soundspot.com"
+  AUDIO_FORMATS: "wav,mp3,ogg,flac,m4a"
+  MAX_AUDIO_SIZE_MB: "25"
+  MAX_AUDIO_DURATION_SEC: "300"
+  ENABLE_MODEL_CACHING: "true"
+  RATE_LIMIT_PER_MINUTE: "100"
+  EVENT_DETECTION_THRESHOLD: "0.75"
+  AUDIO_SAMPLE_RATE: "44100"
+  API_VERSION: "v1"
+  FEATURE_FLAGS: |
+    {
+      "enable_real_time_detection": true,
+      "enable_social_features": true,
+      "enable_geolocation": true,
+      "enable_audio_effects": false,
+      "enable_advanced_analytics": false
+    }

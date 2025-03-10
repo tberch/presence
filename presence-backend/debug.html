@@ -1,0 +1,35 @@
+// Create a simpler debug.html file:
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Test</title>
+</head>
+<body>
+    <h1>Audio Test</h1>
+    <button id="startAudio">Start Audio</button>
+    <script>
+        document.getElementById('startAudio').addEventListener('click', async () => {
+            console.log("Button clicked");
+            try {
+                // Just test microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                console.log("Microphone access granted", stream);
+                
+                // Create audio context
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("Audio context created", audioContext);
+                
+                // Create analyzer
+                const analyser = audioContext.createAnalyser();
+                console.log("Analyser created", analyser);
+                
+                // Success!
+                document.body.innerHTML += "<p>Audio initialized successfully!</p>";
+            } catch (err) {
+                console.error("Audio error:", err);
+                document.body.innerHTML += `<p>Error: ${err.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

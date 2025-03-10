@@ -1,0 +1,12 @@
+{
+  "name": "@presence/common",
+  "version": "1.0.0",
+  "description": "Common utilities for Presence microservices",
+  "main": "index.js",
+  "files": [
+    "*.js"
+  ],
+  "dependencies": {
+    "axios": "^0.27.2"
+  }
+}

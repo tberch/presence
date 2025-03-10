@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Visualization Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .description {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        #status {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #e7f3fe;
+            border-left: 4px solid #2196F3;
+        }
+        
+        canvas {
+            width: 100%;
+            background-color: #000;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .visualizer-container {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #fafafa;
+        }
+        
+        .info-panel {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fffde7;
+            border-left: 4px solid #ffc107;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Visualization Test</h1>
+    
+    <div class="description">
+        <p>This page tests the audio visualization components to ensure they're rendering properly. 
+           If you see animations in both visualizers, the rendering is working correctly.</p>
+    </div>
+
+    <div class="controls">
+        <button id="testReal">Test with Microphone</button>
+        <button id="testFake">Test with Fake Data</button>
+        <button id="stopTest">Stop Test</button>
+    </div>
+    
+    <div id="status">Status: Ready for testing</div>
+    
+    <div class="visualizer-container">
+        <h2>Debug Visualizer</h2>
+        <canvas id="debugVisualizer" height="100"></canvas>
+    </div>
+    
+    <div class="visualizer-container">
+        <h2>Audio Visualizer</h2>
+        <canvas id="audioVisualizer" height="100"></canvas>
+    </div>
+    
+    <div class="info-panel">
+        <h2>Debug Information</h2>
+        <div id="debug"></div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const testRealButton = document.getElementById('testReal');
+            const testFakeButton = document.getElementById('testFake');
+            const stopTestButton = document.getElementById('stopTest');
+            const statusElement = document.getElementById('status');
+            const debugElement = document.getElementById('debug');
+            
+            // Make sure canvases have correct dimensions
+            const debugCanvas = document.getElementById('debugVisualizer');
+            const audioCanvas = document.getElementById('audioVisualizer');
+            
+            // Resize canvases to match their display size
+            function resizeCanvas(canvas) {
+                canvas.width = canvas.clientWidth;
+                canvas.height = canvas.clientHeight;
+            }
+            
+            resizeCanvas(debugCanvas);
+            resizeCanvas(audioCanvas);
+            window.addEventListener('resize', () => {
+                resizeCanvas(debugCanvas);
+                resizeCanvas(audioCanvas);
+            });
+            
+            // Test with real microphone
+            testRealButton.addEventListener('click', async () => {
+                statusElement.textContent = 'Status: Testing with real microphone...';
+                debugElement.innerHTML = '<p>Requesting microphone access...</p>';
+                
+                try {
+                    // Check if browser supports getUserMedia
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error("Your browser doesn't support getUserMedia API");
+                    }
+                    
+                    // Request microphone access
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    // Create audio context
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const sourceNode = audioContext.createMediaStreamSource(stream);
+                    
+                    // Create analyzer nodes (one for each visualizer)
+                    const debugAnalyser = audioContext.createAnalyser();
+                    debugAnalyser.fftSize = 2048;
+                    sourceNode.connect(debugAnalyser);
+                    
+                    const audioAnalyser = audioContext.createAnalyser();
+                    audioAnalyser.fftSize = 1024;
+                    sourceNode.connect(audioAnalyser);
+                    
+                    // Get canvases
+                    const debugCtx = debugCanvas.getContext('2d');
+                    const audioCtx = audioCanvas.getContext('2d');
+                    
+                    // Create data arrays
+                    const debugData = new Uint8Array(debugAnalyser.frequencyBinCount);
+                    const audioData = new Uint8Array(audioAnalyser.frequencyBinCount);
+                    
+                    // Update status
+                    statusElement.textContent = 'Status: Microphone connected, visualizing audio';
+                    debugElement.innerHTML = '<p>Microphone access granted. Visualizing real audio data.</p>';
+                    
+                    // Disable start buttons, enable stop button
+                    testRealButton.disabled = true;
+                    testFakeButton.disabled = true;
+                    stopTestButton.disabled = false;
+                    
+                    // Draw function for debug visualizer
+                    function drawDebug() {
+                        if (!testRealButton.disabled) return;
+                        
+                        debugAnalyser.getByteTimeDomainData(debugData);
+                        
+                        debugCtx.fillStyle = '#222';
+                        debugCtx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
+                        
+                        debugCtx.lineWidth = 2;
+                        debugCtx.strokeStyle = '#4CAF50';
+                        debugCtx.beginPath();
+                        
+                        const sliceWidth = debugCanvas.width / debugData.length;
+                        let x = 0;
+                        
+                        for (let i = 0; i < debugData.length; i++) {
+                            const v = debugData[i] / 128.0;
+                            const y = v * debugCanvas.height / 2;
+                            
+                            if (i === 0) {
+                                debugCtx.moveTo(x, y);
+                            } else {
+                                debugCtx.lineTo(x, y);
+                            }
+                            
+                            x += sliceWidth;
+                        }
+                        
+                        debugCtx.lineTo(debugCanvas.width, debugCanvas.height / 2);
+                        debugCtx.stroke();
+                        
+                        requestAnimationFrame(drawDebug);
+                    }
+                    
+                    // Draw function for audio visualizer
+                    function drawAudio() {
+                        if (!testRealButton.disabled) return;
+                        
+                        audioAnalyser.getByteFrequencyData(audioData);
+                        
+                        audioCtx.fillStyle = '#000';
+                        audioCtx.fillRect(0, 0, audioCanvas.width, audioCanvas.height);
+                        
+                        const barWidth = audioCanvas.width / audioData.length;
+                        let x = 0;
+                        
+                        for (let i = 0; i < audioData.length; i++) {
+                            const barHeight = (audioData[i] / 255) * audioCanvas.height;
+                            
+                            // Create gradient
+                            const gradient = audioCtx.createLinearGradient(0, audioCanvas.height, 0, audioCanvas.height - barHeight);
+                            gradient.addColorStop(0, '#4CAF50');
+                            gradient.addColorStop(0.5, '#FFEB3B');
+                            gradient.addColorStop(1, '#F44336');
+                            
+                            audioCtx.fillStyle = gradient;
+                            audioCtx.fillRect(x, audioCanvas.height - barHeight, barWidth - 1, barHeight);
+                            
+                            x += barWidth;
+                        }
+                        
+                        requestAnimationFrame(drawAudio);
+                    }
+                    
+                    // Start drawing
+                    drawDebug();
+                    drawAudio();
+                    
+                    // Store cleanup function
+                    window.stopVisualizers = () => {
+                        stream.getTracks().forEach(track => track.stop());
+                        audioContext.close();
+                        testRealButton.disabled = false;
+                        testFakeButton.disabled = false;
+                        stopTestButton.disabled = true;
+                        statusElement.textContent = 'Status: Test stopped';
+                    };
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    statusElement.textContent = `Status: Error - ${error.message}`;
+                    debugElement.innerHTML = `<p>Error accessing microphone: ${error.message}</p>
+                                            <pre>${error.stack || 'No stack trace available'}</pre>
+                                            <p>Using fake data might work better for testing visualizers.</p>`;
+                    
+                    testRealButton.disabled = false;
+                    testFakeButton.disabled = false;
+                }
+            });
+            
+            // Test with fake data
+            testFakeButton.addEventListener('click', () => {
+                statusElement.textContent = 'Status: Testing with fake audio data...';
+                
+                // Disable start buttons, enable stop button
+                testRealButton.disabled = true;
+                testFakeButton.disabled = true;
+                stopTestButton.disabled = false;
+                
+                // Get canvases contexts
+                const debugCtx = debugCanvas.getContext('2d');
+                const audioCtx = audioCanvas.getContext('2d');
+                
+                // Create fake data
+                const debugDataSize = 1024;
+                const audioDataSize = 128;
+                let time = 0;
+                
+                // Draw function for debug visualizer (fake waveform)
+                function drawDebug() {
+                    if (!testRealButton.disabled) return;
+                    
+                    debugCtx.fillStyle = '#222';
+                    debugCtx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
+                    
+                    debugCtx.lineWidth = 2;
+                    debugCtx.strokeStyle = '#4CAF50';
+                    debugCtx.beginPath();
+                    
+                    const sliceWidth = debugCanvas.width / debugDataSize;
+                    let x = 0;
+                    
+                    for (let i = 0; i < debugDataSize; i++) {
+                        // Create a wave pattern with variation
+                        const v = 0.5 + 
+                                 0.2 * Math.sin(i / 10 + time) + 
+                                 0.1 * Math.sin(i / 5 + time * 0.7);
+                        
+                        const y = v * debugCanvas.height;
+                        
+                        if (i === 0) {
+                            debugCtx.moveTo(x, y);
+                        } else {
+                            debugCtx.lineTo(x, y);
+                        }
+                        
+                        x += sliceWidth;
+                    }
+                    
+                    debugCtx.stroke();
+                    
+                    // Draw a threshold line
+                    debugCtx.strokeStyle = '#FF9800';
+                    debugCtx.beginPath();
+                    debugCtx.moveTo(0, debugCanvas.height * 0.7);
+                    debugCtx.lineTo(debugCanvas.width, debugCanvas.height * 0.7);
+                    debugCtx.stroke();
+                    
+                    // Add some text
+                    debugCtx.fillStyle = '#FFF';
+                    debugCtx.font = '12px Arial';
+                    debugCtx.fillText('Energy: 0.42', 10, 20);
+                    
+                    time += 0.05;
+                    requestAnimationFrame(drawDebug);
+                }
+                
+                // Draw function for audio visualizer (fake spectrum)
+                function drawAudio() {
+                    if (!testRealButton.disabled) return;
+                    
+                    audioCtx.fillStyle = '#000';
+                    audioCtx.fillRect(0, 0, audioCanvas.width, audioCanvas.height);
+                    
+                    const barWidth = audioCanvas.width / audioDataSize;
+                    let x = 0;
+                    
+                    for (let i = 0; i < audioDataSize; i++) {
+                        // Create a spectrum-like pattern
+                        const barHeight = audioCanvas.height * (
+                            0.1 + 0.4 * Math.sin(i / audioDataSize * Math.PI + time) * Math.sin(time * 0.2)
+                        );
+                        
+                        // Create gradient
+                        const gradient = audioCtx.createLinearGradient(0, audioCanvas.height, 0, audioCanvas.height - barHeight);
+                        gradient.addColorStop(0, '#4CAF50');
+                        gradient.addColorStop(0.5, '#FFEB3B');
+                        gradient.addColorStop(1, '#F44336');
+                        
+                        audioCtx.fillStyle = gradient;
+                        audioCtx.fillRect(x, audioCanvas.height - barHeight, barWidth - 1, barHeight);
+                        
+                        x += barWidth;
+                    }
+                    
+                    time += 0.1;
+                    requestAnimationFrame(drawAudio);
+                }
+                
+                // Start drawing
+                drawDebug();
+                drawAudio();
+                
+                // Store cleanup function
+                window.stopVisualizers = () => {
+                    testRealButton.disabled = false;
+                    testFakeButton.disabled = false;
+                    stopTestButton.disabled = true;
+                    statusElement.textContent = 'Status: Test stopped';
+                };
+                
+                debugElement.innerHTML = '<p>Using fake data for visualization testing. If you see animations in both visualizers, the rendering is working correctly.</p>';
+            });
+            
+            // Stop test
+            stopTestButton.addEventListener('click', () => {
+                if (window.stopVisualizers) {
+                    window.stopVisualizers();
+                }
+            });
+            
+            // Initially disable stop button
+            stopTestButton.disabled = true;
+        });
+    </script>
+</body>
+</html>

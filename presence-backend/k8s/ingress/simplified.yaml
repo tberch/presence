@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: simplified-ingress
+  namespace: presence
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: presence.local
+      http:
+        paths:
+          - path: /test
+            pathType: Prefix
+            backend:
+              service:
+                name: fingerprint-service
+                port:
+                  number: 3000

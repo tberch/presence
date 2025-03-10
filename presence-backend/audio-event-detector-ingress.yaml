@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audio-event-ingress
+spec:
+  rules:
+  - host: audio-detection.talkstudio.space  # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: audio-event-detector-svc
+            port:
+              number: 80
+

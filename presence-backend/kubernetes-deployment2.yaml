@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audio-event-detector
+  labels:
+    app: audio-event-detector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: audio-event-detector
+  template:
+    metadata:
+      labels:
+        app: audio-event-detector
+    spec:
+      containers:
+      - name: audio-event-detector
+        image: tberchenbriter/audio-event-detector:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audio-event-detector-svc
+spec:
+  selector:
+    app: audio-event-detector
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audio-event-detector-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: audio-detection.talkstudio.space  # Replace with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: audio-event-detector-svc
+            port:
+              number: 80

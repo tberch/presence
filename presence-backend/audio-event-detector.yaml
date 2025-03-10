@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: audio-event-detector-svc
+spec:
+  selector:
+    app: audio-event-detector
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+

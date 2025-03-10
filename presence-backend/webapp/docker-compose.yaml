@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/audioeventapp
+      - MONGODB_URL=mongodb://mongodb:mongodb@mongodb:27017/audioeventapp?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=dev_jwt_secret
+      - ENV=development
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/audioeventapp
+      - MONGODB_URL=mongodb://mongodb:mongodb@mongodb:27017/audioeventapp?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=dev_jwt_secret
+      - ENV=development
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    command: celery -A app.tasks.worker worker --loglevel=info
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=audioeventapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=mongodb
+      - MONGO_INITDB_ROOT_PASSWORD=mongodb
+      - MONGO_INITDB_DATABASE=audioeventapp
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:

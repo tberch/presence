@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "7"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"audio-detection"},"name":"audio-detection-app","namespace":"default"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"audio-detection"}},"template":{"metadata":{"labels":{"app":"audio-detection"}},"spec":{"containers":[{"image":"nginx:alpine","imagePullPolicy":"IfNotPresent","name":"audio-detection","ports":[{"containerPort":80}],"volumeMounts":[{"mountPath":"/usr/share/nginx/html","name":"app-files"}]}],"volumes":[{"configMap":{"name":"audio-detection-files"},"name":"app-files"}]}}}}
+  creationTimestamp: "2025-03-04T17:33:14Z"
+  generation: 8
+  labels:
+    app: audio-detection
+    pod-reference: audio-detection-app-86c7bfbcdf-jkwr7
+  name: audio-detection-app
+  namespace: default
+  resourceVersion: "141080"
+  uid: 97f51858-2407-4bfe-9fc1-a8d003150649
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 0
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: audio-detection
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: audio-detection
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        name: audio-detection
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /usr/share/nginx/html/index.html
+          name: modified-index
+          subPath: index.html
+        - mountPath: /usr/share/nginx/html/canvas-test.html
+          name: canvas-fix-files
+          subPath: canvas-test.html
+        - mountPath: /usr/share/nginx/html/canvas-fix.js
+          name: canvas-fix-files
+          subPath: canvas-fix.js
+        - mountPath: /usr/share/nginx/html/fix.html
+          name: inline-fix
+          subPath: inline-fix.html
+        - mountPath: /usr/share/nginx/html/audio-event-detector.js
+          name: detector-script
+          subPath: audio-event-detector.js
+        - mountPath: /usr/share/nginx/html
+          name: app-files
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: modified-index-html
+        name: modified-index
+      - configMap:
+          defaultMode: 420
+          name: detector-script
+        name: detector-script
+      - configMap:
+          defaultMode: 420
+          name: canvas-fix-files
+        name: canvas-fix-files
+      - configMap:
+          defaultMode: 420
+          name: inline-fix
+        name: inline-fix
+      - configMap:
+          defaultMode: 420
+          name: fixed-audio-detector
+        name: js-files
+      - configMap:
+          defaultMode: 420
+          name: audio-detection-files
+        name: app-files
+status:
+  conditions:
+  - lastTransitionTime: "2025-03-05T18:23:49Z"
+    lastUpdateTime: "2025-03-05T18:23:49Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2025-03-05T19:21:14Z"
+    lastUpdateTime: "2025-03-05T19:22:42Z"
+    message: ReplicaSet "audio-detection-app-7d6c9d5cf4" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 8

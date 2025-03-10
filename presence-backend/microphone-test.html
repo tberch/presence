@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Access Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        #status {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #e7f3fe;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .error {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        
+        .success {
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+        
+        #visualizer {
+            width: 100%;
+            height: 100px;
+            background-color: #000;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        .help-section {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #fffde7;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <h1>Microphone Access Test</h1>
+    
+    <div id="status">Status: Ready to test microphone access</div>
+    
+    <button id="requestMic">Request Microphone Access</button>
+    <button id="stopMic" disabled>Stop Microphone</button>
+    <button id="showPermissions">Show Current Permissions</button>
+    
+    <canvas id="visualizer"></canvas>
+    
+    <div class="help-section">
+        <h2>Troubleshooting Guide</h2>
+        <p>If you're having issues with microphone access:</p>
+        <ol>
+            <li>Make sure you're using a modern browser (Chrome, Firefox, Edge, Safari)</li>
+            <li>Check that your microphone is properly connected and working</li>
+            <li>Ensure you've granted microphone permissions when prompted</li>
+            <li>For non-localhost testing, ensure you're using HTTPS</li>
+            <li>Check browser console for detailed error messages</li>
+            <li>Try accessing this page directly via port forwarding: <code>kubectl port-forward pod-name 8080:80</code></li>
+        </ol>
+        
+        <h3>Technical Details:</h3>
+        <div id="technical"></div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const requestMicButton = document.getElementById('requestMic');
+            const stopMicButton = document.getElementById('stopMic');
+            const showPermissionsButton = document.getElementById('showPermissions');
+            const statusElement = document.getElementById('status');
+            const visualizerCanvas = document.getElementById('visualizer');
+            const visualizerContext = visualizerCanvas.getContext('2d');
+            const technicalDiv = document.getElementById('technical');
+            
+            let audioContext = null;
+            let stream = null;
+            let analyser = null;
+            let source = null;
+            let animationFrame = null;
+            
+            // Update technical information
+            function updateTechnical() {
+                const info = {
+                    'URL': window.location.href,
+                    'Protocol': window.location.protocol,
+                    'User Agent': navigator.userAgent,
+                    'Media Devices Support': !!navigator.mediaDevices,
+                    'getUserMedia Support': !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                    'AudioContext Support': !!(window.AudioContext || window.webkitAudioContext)
+                };
+                
+                technicalDiv.innerHTML = '<pre>' + JSON.stringify(info, null, 2) + '</pre>';
+            }
+            
+            updateTechnical();
+            
+            // Request microphone access
+            requestMicButton.addEventListener('click', async () => {
+                try {
+                    statusElement.textContent = 'Status: Requesting microphone access...';
+                    statusElement.className = '';
+                    
+                    // Create audio context
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    // Request microphone access with detailed constraints
+                    const constraints = {
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        },
+                        video: false
+                    };
+                    
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    
+                    // Set up audio processing
+                    source = audioContext.createMediaStreamSource(stream);
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 256;
+                    source.connect(analyser);
+                    
+                    // Show visualizer
+                    visualizerCanvas.style.display = 'block';
+                    visualizerCanvas.width = visualizerCanvas.clientWidth;
+                    visualizerCanvas.height = visualizerCanvas.clientHeight;
+                    
+                    // Start visualizer
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+                    
+                    function drawVisualizer() {
+                        animationFrame = requestAnimationFrame(drawVisualizer);
+                        
+                        analyser.getByteFrequencyData(dataArray);
+                        
+                        visualizerContext.fillStyle = 'rgb(0, 0, 0)';
+                        visualizerContext.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+                        
+                        const barWidth = (visualizerCanvas.width / bufferLength) * 2.5;
+                        let barHeight;
+                        let x = 0;
+                        
+                        for (let i = 0; i < bufferLength; i++) {
+                            barHeight = dataArray[i] / 2;
+                            
+                            visualizerContext.fillStyle = `rgb(${barHeight + 100}, 50, 50)`;
+                            visualizerContext.fillRect(x, visualizerCanvas.height - barHeight, barWidth, barHeight);
+                            
+                            x += barWidth + 1;
+                        }
+                    }
+                    
+                    drawVisualizer();
+                    
+                    // Update UI
+                    statusElement.textContent = 'Status: Microphone access granted successfully!';
+                    statusElement.className = 'success';
+                    requestMicButton.disabled = true;
+                    stopMicButton.disabled = false;
+                    
+                } catch (error) {
+                    console.error('Error accessing microphone:', error);
+                    
+                    // Format detailed error message
+                    let errorMessage = 'Status: Failed to access microphone. ';
+                    
+                    if (error.name === 'NotAllowedError') {
+                        errorMessage += 'Permission denied by user or system.';
+                    } else if (error.name === 'NotFoundError') {
+                        errorMessage += 'No microphone found.';
+                    } else if (error.name === 'NotReadableError') {
+                        errorMessage += 'Microphone is already in use or not working properly.';
+                    } else if (error.name === 'SecurityError') {
+                        errorMessage += 'Security restriction - this page must be served over HTTPS (except for localhost).';
+                    } else if (error.name === 'AbortError') {
+                        errorMessage += 'Request aborted by the system.';
+                    } else {
+                        errorMessage += `Error: ${error.name}, ${error.message}`;
+                    }
+                    
+                    statusElement.textContent = errorMessage;
+                    statusElement.className = 'error';
+                    
+                    // Add detailed error to technical section
+                    technicalDiv.innerHTML += '<h4>Error Details:</h4>';
+                    technicalDiv.innerHTML += `<pre>Error Name: ${error.name}\nError Message: ${error.message}\nFull Error: ${JSON.stringify(error)}</pre>`;
+                }
+            });
+            
+            // Stop microphone access
+            stopMicButton.addEventListener('click', () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                
+                if (animationFrame) {
+                    cancelAnimationFrame(animationFrame);
+                    animationFrame = null;
+                }
+                
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                }
+                
+                visualizerCanvas.style.display = 'none';
+                statusElement.textContent = 'Status: Microphone access stopped';
+                statusElement.className = '';
+                requestMicButton.disabled = false;
+                stopMicButton.disabled = true;
+            });
+            
+            // Show current permissions
+            showPermissionsButton.addEventListener('click', async () => {
+                try {
+                    if (!navigator.permissions) {
+                        statusElement.textContent = 'Status: Permissions API not supported by your browser';
+                        statusElement.className = 'error';
+                        return;
+                    }
+                    
+                    const result = await navigator.permissions.query({ name: 'microphone' });
+                    
+                    let message = `Current microphone permission: ${result.state}`;
+                    if (result.state === 'prompt') {
+                        message += ' (will ask when requested)';
+                    } else if (result.state === 'granted') {
+                        message += ' (already approved)';
+                    } else if (result.state === 'denied') {
+                        message += ' (blocked - check browser settings)';
+                    }
+                    
+                    statusElement.textContent = message;
+                    statusElement.className = result.state === 'granted' ? 'success' : (result.state === 'denied' ? 'error' : '');
+                    
+                } catch (error) {
+                    statusElement.textContent = `Error checking permissions: ${error.message}`;
+                    statusElement.className = 'error';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

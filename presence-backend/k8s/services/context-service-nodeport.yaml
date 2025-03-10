@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: context-service-nodeport
+  namespace: presence
+  labels:
+    app: context-service
+spec:
+  selector:
+    app: context-service
+  ports:
+    - port: 3001
+      targetPort: 3001
+      nodePort: 30001
+      name: http
+  type: NodePort

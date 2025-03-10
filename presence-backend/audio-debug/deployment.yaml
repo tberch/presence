@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audio-detection-app
+  labels:
+    app: audio-detection
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audio-detection
+  template:
+    metadata:
+      labels:
+        app: audio-detection
+    spec:
+      containers:
+      - name: audio-detection
+        image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: app-files
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: app-files
+        configMap:
+          name: audio-detection-files
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audio-detection-service
+spec:
+  selector:
+    app: audio-detection
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audio-detection-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: audio-detection.talkstudio.space
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: audio-detection-service
+            port:
+              number: 80

@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: audio-detection-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod" # If using cert-manager
+spec:
+  tls:
+  - hosts:
+    - audio-detection.tberchenbriter
+    secretName: audio-detection-tls
+  rules:
+  - host: audio-detection.tberchenbriter
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: audio-detection-service
+            port:
+              number: 80
+
+---
+# If using cert-manager, you can create a Certificate resource
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: audio-detection-cert
+spec:
+  secretName: audio-detection-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - audio-detection.tberchenbriter
