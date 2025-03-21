@@ -249,34 +249,112 @@
                 initButton.disabled = true;
                 statusElement.textContent = 'Status: Initializing...';
                 
-                // Create detector
-                detector = new AudioEventDetector({
-                    energyThreshold: 0.1,
-                    eventThreshold: 0.5,
-                    minEventDuration: 250,
-                    debugVisualizer: true,
-                    onEvent: handleAudioEvent,
-                    statusElement: statusElement,
-                    onError: (error) => {
-                        console.error(error);
-                        statusElement.textContent = 'Status: ' + error;
+                // Add more verbose debugging
+                console.log('Initialize button clicked');
+                
+                // First test if we can access the audio API directly
+                try {
+                    // Log the state of navigator
+                    console.log('navigator object:', navigator);
+                    console.log('navigator.mediaDevices:', navigator.mediaDevices);
+                    
+                    // Try to manually request permission to see if that works
+                    statusElement.textContent = 'Status: Directly testing microphone access...';
+                    
+                    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                        console.log('Using modern getUserMedia API');
+                        navigator.mediaDevices.getUserMedia({ audio: true })
+                            .then(function(stream) {
+                                console.log('Direct microphone access successful!', stream);
+                                statusElement.textContent = 'Status: Microphone access granted, initializing detector...';
+                                
+                                // Stop this test stream
+                                stream.getTracks().forEach(track => track.stop());
+                                
+                                // Now continue with actual detector initialization
+                                initializeDetector();
+                            })
+                            .catch(function(err) {
+                                console.error('Error accessing microphone directly:', err);
+                                statusElement.textContent = 'Status: Error accessing microphone: ' + err.message;
+                                initButton.disabled = false;
+                            });
+                    } else if (navigator.getUserMedia || navigator.webkitGetUserMedia || 
+                              navigator.mozGetUserMedia || navigator.msGetUserMedia) {
+                        // Try the legacy approach
+                        console.log('Using legacy getUserMedia API');
+                        const legacyGetUserMedia = navigator.getUserMedia || 
+                                                  navigator.webkitGetUserMedia || 
+                                                  navigator.mozGetUserMedia || 
+                                                  navigator.msGetUserMedia;
+                        
+                        legacyGetUserMedia.call(navigator, 
+                            { audio: true },
+                            function(stream) {
+                                console.log('Legacy microphone access successful!');
+                                statusElement.textContent = 'Status: Microphone access granted (legacy), initializing detector...';
+                                
+                                // Stop this test stream
+                                stream.getTracks().forEach(track => track.stop());
+                                
+                                // Now continue with actual detector initialization
+                                initializeDetector();
+                            },
+                            function(err) {
+                                console.error('Error accessing microphone with legacy API:', err);
+                                statusElement.textContent = 'Status: Error accessing microphone with legacy API: ' + err.message;
+                                initButton.disabled = false;
+                            }
+                        );
+                    } else {
+                        // No getUserMedia support
+                        console.error('getUserMedia not supported in this browser');
+                        statusElement.textContent = 'Status: Your browser does not support microphone access';
                         initButton.disabled = false;
                     }
-                });
-                
-                // Add detection models
-                detector.addEventModel('Doorbell', createDoorbellDetector());
-                detector.addEventModel('Knocking', createKnockingDetector());
-                
-                // Initialize detector
-                const success = await detector.initialize();
-                
-                if (success) {
-                    // Enable start button
-                    startButton.disabled = false;
-                } else {
-                    // Re-enable init button on failure
+                } catch (e) {
+                    console.error('Error during microphone test:', e);
+                    statusElement.textContent = 'Status: Error testing microphone: ' + e.message;
                     initButton.disabled = false;
+                }
+                
+                function initializeDetector() {
+                    // Create detector
+                    detector = new AudioEventDetector({
+                        energyThreshold: 0.1,
+                        eventThreshold: 0.5,
+                        minEventDuration: 250,
+                        debugVisualizer: true,
+                        onEvent: handleAudioEvent,
+                        statusElement: statusElement,
+                        onError: (error) => {
+                            console.error('Detector error:', error);
+                            statusElement.textContent = 'Status: ' + error;
+                            initButton.disabled = false;
+                        }
+                    });
+                    
+                    // Add detection models
+                    detector.addEventModel('Doorbell', createDoorbellDetector());
+                    detector.addEventModel('Knocking', createKnockingDetector());
+                    
+                    // Initialize detector
+                    detector.initialize()
+                        .then(function(success) {
+                            console.log('Detector initialization result:', success);
+                            if (success) {
+                                // Enable start button
+                                startButton.disabled = false;
+                            } else {
+                                // Re-enable init button on failure
+                                initButton.disabled = false;
+                            }
+                        })
+                        .catch(function(err) {
+                            console.error('Unexpected error during detector initialization:', err);
+                            statusElement.textContent = 'Status: Unexpected error: ' + err.message;
+                            initButton.disabled = false;
+                        });
                 }
             });
             
