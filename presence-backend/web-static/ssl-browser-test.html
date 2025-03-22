@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSL Audio Event Detector Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .log-container {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 10px;
+        }
+        .log-entry {
+            margin: 5px 0;
+        }
+        .log-entry.success {
+            color: #4CAF50;
+        }
+        .log-entry.error {
+            color: #f44336;
+        }
+        .log-entry.info {
+            color: #2196F3;
+        }
+        #audioVisualizer {
+            width: 100%;
+            height: 100px;
+            background-color: #f0f0f0;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+        .settings-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        .value-display {
+            font-size: 12px;
+            color: #666;
+        }
+        .events-container {
+            margin-top: 15px;
+        }
+        .event-item {
+            background-color: #e8f5e9;
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>SSL Audio Event Detector Test</h1>
+    <p>This page tests all components of the audio event detector API at <span id="apiUrl">https://api.talkstudio.space</span></p>
+    
+    <div class="test-section">
+        <div class="test-title">API Connection Test</div>
+        <button id="testConnectionBtn">Test API Connection</button>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">Audio Processing Test</div>
+        <p>Upload an audio file to test event detection:</p>
+        <input type="file" id="audioFileInput" accept="audio/*">
+        <div class="settings-container">
+            <div class="setting-item">
+                <label for="sensitivitySlider">Sensitivity:</label>
+                <input type="range" id="sensitivitySlider" min="0" max="1" step="0.1" value="0.5">
+                <span class="value-display" id="sensitivityValue">0.5</span>
+            </div>
+            <div class="setting-item">
+                <label for="minEventDurationSlider">Min Event Duration (s):</label>
+                <input type="range" id="minEventDurationSlider" min="0.1" max="2" step="0.1" value="0.2">
+                <span class="value-display" id="minEventDurationValue">0.2</span>
+            </div>
+            <div class="setting-item">
+                <label for="maxSilenceDurationSlider">Max Silence Duration (s):</label>
+                <input type="range" id="maxSilenceDurationSlider" min="0.1" max="2" step="0.1" value="0.5">
+                <span class="value-display" id="maxSilenceDurationValue">0.5</span>
+            </div>
+        </div>
+        <button id="processAudioBtn" disabled>Process Audio</button>
+        <div id="audioVisualizer"></div>
+        <div class="events-container" id="eventsContainer"></div>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">WebSocket Test</div>
+        <button id="testWebSocketBtn">Test WebSocket Connection</button>
+    </div>
+    
+    <div class="test-section">
+        <div class="test-title">Log Output</div>
+        <div class="log-container" id="logContainer"></div>
+    </div>
+    
+    <script>
+        // Configuration - using HTTPS
+        const API_BASE_URL = 'https://api.talkstudio.space';
+        document.getElementById('apiUrl').textContent = API_BASE_URL;
+        
+        // DOM elements
+        const logContainer = document.getElementById('logContainer');
+        const testConnectionBtn = document.getElementById('testConnectionBtn');
+        const audioFileInput = document.getElementById('audioFileInput');
+        const processAudioBtn = document.getElementById('processAudioBtn');
+        const testWebSocketBtn = document.getElementById('testWebSocketBtn');
+        const audioVisualizer = document.getElementById('audioVisualizer');
+        const eventsContainer = document.getElementById('eventsContainer');
+        
+        // Settings elements
+        const sensitivitySlider = document.getElementById('sensitivitySlider');
+        const minEventDurationSlider = document.getElementById('minEventDurationSlider');
+        const maxSilenceDurationSlider = document.getElementById('maxSilenceDurationSlider');
+        const sensitivityValue = document.getElementById('sensitivityValue');
+        const minEventDurationValue = document.getElementById('minEventDurationValue');
+        const maxSilenceDurationValue = document.getElementById('maxSilenceDurationValue');
+        
+        // Update settings display
+        sensitivitySlider.addEventListener('input', () => {
+            sensitivityValue.textContent = sensitivitySlider.value;
+        });
+        
+        minEventDurationSlider.addEventListener('input', () => {
+            minEventDurationValue.textContent = minEventDurationSlider.value;
+        });
+        
+        maxSilenceDurationSlider.addEventListener('input', () => {
+            maxSilenceDurationValue.textContent = maxSilenceDurationSlider.value;
+        });
+        
+        // Logging functions
+        function log(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function logSuccess(message) {
+            log(`✅ ${message}`, 'success');
+        }
+        
+        function logError(message) {
+            log(`❌ ${message}`, 'error');
+        }
+        
+        function logInfo(message) {
+            log(`ℹ️ ${message}`, 'info');
+        }
+        
+        // API helper function
+        async function makeRequest(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {},
+            };
+            
+            if (data) {
+                if (data instanceof FormData) {
+                    options.body = data;
+                } else {
+                    options.headers['Content-Type'] = 'application/json';
+                    options.body = JSON.stringify(data);
+                }
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                const responseData = await response.json();
+                return { success: response.ok, status: response.status, data: responseData };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+        
+        // Test API connection
+        async function testApiConnection() {
+            logInfo('Testing API connection...');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                
+                if (response.ok) {
+                    logSuccess('API connection successful');
+                    return true;
+                } else {
+                    logError(`API connection failed with status: ${response.status}`);
+                    return false;
+                }
+            } catch (error) {
+                logError(`API connection failed: ${error.message}`);
+                return false;
+            }
+        }
+        
+        // Test WebSocket connection
+        function testWebSocketConnection() {
+            logInfo('Testing WebSocket connection...');
+            
+            try {
+                const ws = new WebSocket(`wss://api.talkstudio.space/realtime-detection`);
+                
+                ws.onopen = () => {
+                    logSuccess('WebSocket connection established');
+                    
+                    // Send a test message
+                    ws.send(JSON.stringify({ type: 'ping' }));
+                    
+                    // Wait for a short period to receive any response
+                    setTimeout(() => {
+                        ws.close();
+                    }, 2000);
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        logInfo(`Received WebSocket message: ${JSON.stringify(data)}`);
+                    } catch (e) {
+                        logInfo(`Received WebSocket message: ${event.data}`);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    logError(`WebSocket error: ${error}`);
+                };
+                
+                ws.onclose = (event) => {
+                    logInfo(`WebSocket connection closed with code ${event.code}`);
+                };
+            } catch (error) {
+                logError(`WebSocket connection failed: ${error.message}`);
+            }
+        }
+        
+        // Process audio file
+        async function processAudioFile() {
+            const file = audioFileInput.files[0];
+            
+            if (!file) {
+                logError('No file selected');
+                return;
+            }
+            
+            logInfo(`Processing audio file: ${file.name}`);
+            
+            // Upload file
+            const formData = new FormData();
+            formData.append('audio', file);
+            
+            logInfo('Uploading audio file...');
+            const uploadResult = await makeRequest('/upload', 'POST', formData);
+            
+            if (!uploadResult.success) {
+                logError(`Upload failed: ${uploadResult.error || uploadResult.data?.error || 'Unknown error'}`);
+                return;
+            }
+            
+            const fileId = uploadResult.data.fileId;
+            logSuccess(`File uploaded successfully. File ID: ${fileId}`);
+            
+            // Start event detection
+            logInfo('Starting event detection...');
+            const detectionParams = {
+                fileId,
+                sensitivity: parseFloat(sensitivitySlider.value),
+                minEventDuration: parseFloat(minEventDurationSlider.value),
+                maxSilenceDuration: parseFloat(maxSilenceDurationSlider.value)
+            };
+            
+            const detectionResult = await makeRequest('/detect-events', 'POST', detectionParams);
+            
+            if (!detectionResult.success) {
+                logError(`Event detection failed: ${detectionResult.data?.error || 'Unknown error'}`);
+                return;
+            }
+            
+            const jobId = detectionResult.data.jobId;
+            logSuccess(`Event detection started. Job ID: ${jobId}`);
+            
+            // Poll for job status
+            logInfo('Checking job status...');
+            let completed = false;
+            let attempts = 0;
+            const maxAttempts = 30;
+            
+            while (!completed && attempts < maxAttempts) {
+                attempts++;
+                logInfo(`Checking status (attempt ${attempts}/${maxAttempts})...`);
+                
+                const statusResult = await makeRequest(`/job-status/${jobId}`);
+                
+                if (!statusResult.success) {
+                    logError(`Status check failed: ${statusResult.data?.error || 'Unknown error'}`);
+                    return;
+                }
+                
+                logInfo(`Status: ${statusResult.data.status}`);
+                
+                if (statusResult.data.status === 'completed') {
+                    logSuccess('Event processing completed successfully');
+                    completed = true;
+                } else if (statusResult.data.status === 'failed') {
+                    logError(`Event processing failed: ${statusResult.data?.error || 'Unknown error'}`);
+                    return;
+                } else {
+                    // Wait 1 second before checking again
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            
+            if (!completed) {
+                logError('Event processing timed out');
+                return;
+            }
+            
+            // Get event results
+            logInfo('Retrieving event results...');
+            const resultsResult = await makeRequest(`/events/${jobId}`);
+            
+            if (!resultsResult.success) {
+                logError(`Results retrieval failed: ${resultsResult.data?.error || 'Unknown error'}`);
+                return;
+            }
+            
+            const events = resultsResult.data.events || [];
+            logSuccess(`Retrieved ${events.length} events`);
+            
+            // Display events
+            displayEvents(events);
+        }
+        
+        // Display detected events
+        function displayEvents(events) {
+            eventsContainer.innerHTML = '';
+            
+            if (events.length === 0) {
+                eventsContainer.innerHTML = '<p>No events detected</p>';
+                return;
+            }
+            
+            const header = document.createElement('h3');
+            header.textContent = `Detected Events (${events.length})`;
+            eventsContainer.appendChild(header);
+            
+            events.forEach((event, index) => {
+                const eventItem = document.createElement('div');
+                eventItem.className = 'event-item';
+                eventItem.textContent = `Event ${index + 1}: Start: ${event.startTime.toFixed(2)}s, End: ${event.endTime.toFixed(2)}s, Duration: ${(event.endTime - event.startTime).toFixed(2)}s, Type: ${event.type || 'unknown'}`;
+                eventsContainer.appendChild(eventItem);
+            });
+        }
+        
+        // Event listeners
+        testConnectionBtn.addEventListener('click', testApiConnection);
+        testWebSocketBtn.addEventListener('click', testWebSocketConnection);
+        
+        audioFileInput.addEventListener('change', () => {
+            processAudioBtn.disabled = !audioFileInput.files.length;
+        });
+        
+        processAudioBtn.addEventListener('click', processAudioFile);
+        
+        // Initialize
+        log('SSL Audio Event Detector Test initialized');
+    </script>
+</body>
+</html>
