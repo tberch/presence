@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>Audio Event Detector Test</title>
     <style>
         body {
@@ -151,8 +152,13 @@
     
     <script>
         // Configuration
-        const API_BASE_URL = 'http://api.talkstudio.space';
+        const API_BASE_URL = document.location.protocol === 'https:' ? 
+            'https://api.talkstudio.space' : 'http://api.talkstudio.space';
         document.getElementById('apiUrl').textContent = API_BASE_URL;
+        
+        // Log protocol information for debugging
+        logInfo(`Page protocol: ${document.location.protocol}`);
+        logInfo(`Using API URL: ${API_BASE_URL}`);
         
         // DOM elements
         const logContainer = document.getElementById('logContainer');
@@ -210,6 +216,10 @@
             const options = {
                 method,
                 headers: {},
+                // Add mode: 'cors' to handle CORS
+                mode: 'cors',
+                // Add credentials: 'include' if you need to send cookies
+                credentials: 'include'
             };
             
             if (data) {
@@ -255,7 +265,11 @@
             logInfo('Testing WebSocket connection...');
             
             try {
-                const ws = new WebSocket(`ws://api.talkstudio.space/realtime-detection`);
+                // Match WebSocket protocol to page protocol (wss for https, ws for http)
+                const wsProtocol = document.location.protocol === 'https:' ? 'wss://' : 'ws://';
+                logInfo(`Using WebSocket protocol: ${wsProtocol}`);
+                
+                const ws = new WebSocket(`${wsProtocol}api.talkstudio.space/realtime-detection`);
                 
                 ws.onopen = () => {
                     logSuccess('WebSocket connection established');
