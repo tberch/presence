@@ -5,7 +5,7 @@ metadata:
   namespace: presence
 spec:
   rules:
-  - host: presence.local
+  - host: talkstudio.space
     http:
       paths:
       - path: /
